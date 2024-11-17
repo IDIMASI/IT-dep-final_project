@@ -1,7 +1,5 @@
 package main
 
-//https://t.me/BoBa_DIMAS_bot
-
 import (
 	"log"
 
@@ -24,13 +22,32 @@ func main() {
 	updates := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		if update.Message != nil { // If we got a message
-			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+		if update.Message == nil { // ignore any non-Message updates
+			continue
+		}
 
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-			msg.ReplyToMessageID = update.Message.MessageID
+		if !update.Message.IsCommand() { // ignore any non-command Messages
+			continue
+		}
 
-			bot.Send(msg)
+		// Create a new MessageConfig. We don't have text yet,
+		// so we leave it empty.
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+
+		// Extract the command from the Message.
+		switch update.Message.Command() {
+		case "help":
+			msg.Text = "I understand /sayhi and /status."
+		case "sayhi":
+			msg.Text = "Hi :)"
+		case "status":
+			msg.Text = "I'm ok."
+		default:
+			msg.Text = "I don't know that command"
+		}
+
+		if _, err := bot.Send(msg); err != nil {
+			log.Panic(err)
 		}
 	}
 }
