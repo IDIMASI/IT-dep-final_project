@@ -1,0 +1,9 @@
+services:
+   postgres:
+    image: postgres:15.4-alpine
+    env_file:
+      - db.env
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
