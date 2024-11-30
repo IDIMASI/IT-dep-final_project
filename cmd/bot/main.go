@@ -17,7 +17,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := b.Start(); err != nil {
-		log.Fatal(err)
-	}
+	b.Start()
 }

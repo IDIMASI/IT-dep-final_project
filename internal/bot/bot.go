@@ -30,13 +30,13 @@ func NewBot(token string) (*Bot, error) {
 	return &Bot{api: api, db: database}, nil
 }
 
-func (b *Bot) Start() error {
+func (b *Bot) Start() {
 	log.Printf("Authorized on account %s", b.api.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	updates, err := b.api.GetUpdatesChan(u)
+	updates := b.api.GetUpdatesChan(u)
 
 	for update := range updates {
 		if update.Message == nil { // ignore non-Message Updates

@@ -19,8 +19,6 @@ func AddTask(db *sql.DB, chatID int64, args []string) {
 		log.Println("Error adding task:", err)
 		return
 	}
-	msg := fmt.Sprintf("Task added: %s", task)
-	// Здесь вы можете отправить сообщение пользователю, если у вас есть доступ к API
 }
 
 func ListTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
