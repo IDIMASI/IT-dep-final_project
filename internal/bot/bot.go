@@ -4,16 +4,19 @@ import (
 	"database/sql"
 	"log"
 	"strings"
+	"time"
 
 	"IT-dep-final_project/internal/commands"
 	"IT-dep-final_project/internal/db"
 
+	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Bot struct {
-	api *tgbotapi.BotAPI
-	db  *sql.DB
+	api       *tgbotapi.BotAPI
+	db        *sql.DB
+	scheduler *gocron.Scheduler
 }
 
 func NewBot(token string) (*Bot, error) {
@@ -27,7 +30,9 @@ func NewBot(token string) (*Bot, error) {
 		return nil, err
 	}
 
-	return &Bot{api: api, db: database}, nil
+	scheduler := gocron.NewScheduler(time.UTC) // Создаем новый планировщик
+
+	return &Bot{api: api, db: database, scheduler: scheduler}, nil
 }
 
 func (b *Bot) Start() {
@@ -38,6 +43,8 @@ func (b *Bot) Start() {
 
 	updates := b.api.GetUpdatesChan(u)
 
+	go b.scheduler.StartAsync() // Запускаем планировщик в отдельной горутине
+
 	for update := range updates {
 		if update.Message == nil { // ignore non-Message Updates
 			continue
@@ -46,7 +53,7 @@ func (b *Bot) Start() {
 		command := strings.Split(update.Message.Text, " ")
 		switch command[0] {
 		case "/add":
-			commands.AddTask(b.db, update.Message.Chat.ID, command[1:])
+			commands.AddTask(b.db, update.Message.Chat.ID, command[1:], b.scheduler, b.api) // Передаем планировщику
 		case "/list":
 			commands.ListTasks(b.db, update.Message.Chat.ID, b.api)
 		case "/complete":
