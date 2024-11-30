@@ -31,6 +31,7 @@ func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Schedule
 
 	// Парсим время
 	dueTimeParsed, err := time.Parse("15:04:05", dueTime)
+	log.Println(dueTimeParsed)
 	if err != nil {
 		log.Println("Error parsing due time:", err)
 		api.Send(tgbotapi.NewMessage(chatID, "Error parsing due time. Please use HH:MM:SS format."))
@@ -40,26 +41,26 @@ func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Schedule
 	// Получаем текущее время
 	now := time.Now()
 	dueTimeParsed = time.Date(now.Year(), now.Month(), now.Day(), dueTimeParsed.Hour(), dueTimeParsed.Minute(), dueTimeParsed.Second(), 0, now.Location())
-
+	log.Println(dueTimeParsed)
 	// Если время уже прошло, добавляем один день
 	if dueTimeParsed.Before(now) {
 		dueTimeParsed = dueTimeParsed.Add(24 * time.Hour)
 	}
 
 	// Запланируем задачу
-	scheduler.At(dueTimeParsed.Format("15:04")).Do(func() {
+	scheduler.Every(1).Day().At(dueTimeParsed.Format("15:04")).Do(func() {
 		// Отправляем уведомление
 		message := fmt.Sprintf("Reminder: %s", task)
 		api.Send(tgbotapi.NewMessage(chatID, message))
 		log.Printf("Sent notification to chat %d: %s", chatID, task)
 	})
 
-	api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("Task added: %s (Due: %s)", task, dueTime)))
+	api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("Task added: %s (%s)", task, dueTime)))
 }
 
 // ListTasks lists all tasks for a given chat ID
 func ListTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
-	rows, err := db.Query("SELECT task, due_time FROM tasks WHERE chat_id = $1", chatID)
+	rows, err := db.Query("SELECT id, task, due_time FROM tasks WHERE chat_id = $1", chatID)
 	if err != nil {
 		log.Println("Error retrieving tasks:", err)
 		api.Send(tgbotapi.NewMessage(chatID, "Error retrieving tasks."))
@@ -69,12 +70,13 @@ func ListTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
 
 	var tasks []string
 	for rows.Next() {
+		var id int
 		var task, dueTime string
-		if err := rows.Scan(&task, &dueTime); err != nil {
+		if err := rows.Scan(&id, &task, &dueTime); err != nil {
 			log.Println("Error scanning task:", err)
 			continue
 		}
-		tasks = append(tasks, fmt.Sprintf("Task: %s (Due: %s)", task, dueTime))
+		tasks = append(tasks, fmt.Sprintf("Task %d: %s (%s)", id, task, dueTime))
 	}
 
 	if len(tasks) == 0 {
@@ -102,4 +104,16 @@ func CompleteTask(db *sql.DB, chatID int64, args []string, api *tgbotapi.BotAPI)
 	}
 
 	api.Send(tgbotapi.NewMessage(chatID, "Task completed successfully."))
+}
+
+func CompleteAllTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
+	// Delete all tasks for the given chat ID
+	_, err := db.Exec("DELETE FROM tasks WHERE chat_id = $1", chatID)
+	if err != nil {
+		log.Println("Error deleting tasks:", err)
+		api.Send(tgbotapi.NewMessage(chatID, "Error deleting tasks."))
+		return
+	}
+
+	api.Send(tgbotapi.NewMessage(chatID, "All tasks have been completed and removed."))
 }

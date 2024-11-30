@@ -43,7 +43,7 @@ func (b *Bot) Start() {
 
 	updates := b.api.GetUpdatesChan(u)
 
-	go b.scheduler.StartAsync() // Запускаем планировщик в отдельной горутине
+	go b.scheduler.StartAsync() // Start the scheduler in a separate goroutine
 
 	for update := range updates {
 		if update.Message == nil { // ignore non-Message Updates
@@ -53,13 +53,15 @@ func (b *Bot) Start() {
 		command := strings.Split(update.Message.Text, " ")
 		switch command[0] {
 		case "/add":
-			commands.AddTask(b.db, update.Message.Chat.ID, command[1:], b.scheduler, b.api) // Передаем планировщику
+			commands.AddTask(b.db, update.Message.Chat.ID, command[1:], b.scheduler, b.api) // Pass to scheduler
 		case "/list":
 			commands.ListTasks(b.db, update.Message.Chat.ID, b.api)
 		case "/complete":
 			commands.CompleteTask(b.db, update.Message.Chat.ID, command[1:], b.api)
+		case "/completeall":
+			commands.CompleteAllTasks(b.db, update.Message.Chat.ID, b.api) // Handle complete all command
 		default:
-			b.api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Unknown command. Use /add, /list, or /complete."))
+			b.api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Unknown command. Use /add, /list, /complete, or /completeall."))
 		}
 	}
 }
