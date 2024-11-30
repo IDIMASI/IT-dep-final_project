@@ -31,29 +31,36 @@ func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Schedule
 
 	// Парсим время
 	dueTimeParsed, err := time.Parse("15:04:05", dueTime)
-	log.Println(dueTimeParsed)
 	if err != nil {
 		log.Println("Error parsing due time:", err)
 		api.Send(tgbotapi.NewMessage(chatID, "Error parsing due time. Please use HH:MM:SS format."))
 		return
 	}
 
-	// Получаем текущее время
-	now := time.Now()
-	dueTimeParsed = time.Date(now.Year(), now.Month(), now.Day(), dueTimeParsed.Hour(), dueTimeParsed.Minute(), dueTimeParsed.Second(), 0, now.Location())
-	log.Println(dueTimeParsed)
+	// Создаем временную зону UTC+3
+	utcPlus3 := time.FixedZone("UTC+3", 3*60*60)
+
+	// Получаем текущее время в UTC+3
+	now := time.Now().In(utcPlus3)
+
+	// Создаем dueTimeParsed в UTC+3
+	dueTimeParsed = time.Date(now.Year(), now.Month(), now.Day(), dueTimeParsed.Hour(), dueTimeParsed.Minute(), dueTimeParsed.Second(), 0, utcPlus3)
+
 	// Если время уже прошло, добавляем один день
 	if dueTimeParsed.Before(now) {
 		dueTimeParsed = dueTimeParsed.Add(24 * time.Hour)
 	}
 
 	// Запланируем задачу
+	log.Println(dueTimeParsed)
 	scheduler.Every(1).Day().At(dueTimeParsed.Format("15:04")).Do(func() {
 		// Отправляем уведомление
 		message := fmt.Sprintf("Reminder: %s", task)
 		api.Send(tgbotapi.NewMessage(chatID, message))
 		log.Printf("Sent notification to chat %d: %s", chatID, task)
 	})
+
+	scheduler.StartAsync()
 
 	api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("Task added: %s (%s)", task, dueTime)))
 }

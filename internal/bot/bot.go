@@ -43,7 +43,8 @@ func (b *Bot) Start() {
 
 	updates := b.api.GetUpdatesChan(u)
 
-	go b.scheduler.StartAsync() // Start the scheduler in a separate goroutine
+	// Start the scheduler in a separate goroutine
+	b.scheduler.StartAsync()
 
 	for update := range updates {
 		if update.Message == nil { // ignore non-Message Updates
