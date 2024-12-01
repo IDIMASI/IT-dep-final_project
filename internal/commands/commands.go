@@ -12,18 +12,15 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// AddTask добавляет новую задачу с заданным временем уведомления
-// AddTask добавляет новую задачу с заданным временем уведомления
 func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Scheduler, api *tgbotapi.BotAPI) {
 	if len(args) < 3 {
 		api.Send(tgbotapi.NewMessage(chatID, "Usage: /add <task> <due_date (DD-MM-YYYY)> <due_time (HH:MM:SS)>"))
 		return
 	}
 	task := strings.Join(args[:len(args)-2], " ")
-	dueDate := args[len(args)-2] // Дата в формате DD-MM-YYYY
-	dueTime := args[len(args)-1] // Время в формате HH:MM:SS
+	dueDate := args[len(args)-2]
+	dueTime := args[len(args)-1]
 
-	// Разделяем дату на компоненты
 	dateParts := strings.Split(dueDate, "-")
 	if len(dateParts) != 3 {
 		api.Send(tgbotapi.NewMessage(chatID, "Неверный формат даты. Пожалуйста, используйте DD-MM-YYYY."))
@@ -39,7 +36,6 @@ func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Schedule
 		return
 	}
 
-	// Разделяем часы, минуты и секунды
 	parts := strings.Split(dueTime, ":")
 	if len(parts) != 3 {
 		api.Send(tgbotapi.NewMessage(chatID, "Неверный формат времени. Пожалуйста, используйте ЧЧ:ММ:СС."))
@@ -55,7 +51,6 @@ func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Schedule
 		return
 	}
 
-	// Сохраняем задачу в базе данных
 	_, err := db.Exec("INSERT INTO tasks (chat_id, task, due_time) VALUES ($1, $2, $3)", chatID, task, fmt.Sprintf("%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hours, minutes, seconds))
 	if err != nil {
 		log.Println("Error adding task:", err)
@@ -63,22 +58,17 @@ func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Schedule
 		return
 	}
 
-	// Создаем временную зону UTC+3
 	utcPlus3 := time.FixedZone("UTC+3", 3*60*60)
 
-	// Создаем dueTimeParsed в UTC+3
 	dueTimeParsed := time.Date(year, time.Month(month), day, hours, minutes, seconds, 0, utcPlus3)
 
-	// Если время уже прошло, добавляем один день
 	now := time.Now().In(utcPlus3)
 	if dueTimeParsed.Before(now) {
 		dueTimeParsed = dueTimeParsed.Add(24 * time.Hour)
 	}
 
-	// Запланируем задачу
 	log.Println(dueTimeParsed.Format("2006-01-02 15:04:05"))
 	scheduler.Every(1).Day().At(fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)).Do(func() {
-		// Отправляем уведомление
 		message := fmt.Sprintf("Напоминание: %s", task)
 		_, err := api.Send(tgbotapi.NewMessage(chatID, message))
 		if err != nil {
@@ -88,13 +78,11 @@ func AddTask(db *sql.DB, chatID int64, args []string, scheduler *gocron.Schedule
 		}
 	})
 
-	// Запускаем планировщик в основном потоке
 	scheduler.StartAsync()
 
 	api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("Задача добавлена: %s (Срок: %s %s)", task, dueDate, dueTime)))
 }
 
-// ListTasks lists all tasks for a given chat ID
 func ListTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
 	rows, err := db.Query("SELECT id, task, due_time FROM tasks WHERE chat_id = $1", chatID)
 	if err != nil {
@@ -123,14 +111,12 @@ func ListTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
 	api.Send(tgbotapi.NewMessage(chatID, strings.Join(tasks, "\n")))
 }
 
-// CompleteTask marks a task as complete
-// CompleteTask marks a task as complete
 func CompleteTask(db *sql.DB, chatID int64, args []string, api *tgbotapi.BotAPI) {
 	if len(args) < 1 {
 		api.Send(tgbotapi.NewMessage(chatID, "Usage: /complete <task_id>"))
 		return
 	}
-	taskID := args[0] // Предполагаем, что task_id передан как первый аргумент
+	taskID := args[0]
 
 	_, err := db.Exec("DELETE FROM tasks WHERE chat_id = $1 AND id = $2", chatID, taskID)
 	if err != nil {
@@ -143,7 +129,6 @@ func CompleteTask(db *sql.DB, chatID int64, args []string, api *tgbotapi.BotAPI)
 }
 
 func CompleteAllTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
-	// Delete all tasks for the given chat ID
 	_, err := db.Exec("DELETE FROM tasks WHERE chat_id = $1", chatID)
 	if err != nil {
 		log.Println("Error deleting tasks:", err)
@@ -154,7 +139,6 @@ func CompleteAllTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
 	api.Send(tgbotapi.NewMessage(chatID, "All tasks have been completed and removed."))
 }
 
-// WeekTasks lists all tasks for a given chat ID within the next week
 func WeekTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
 	now := time.Now()
 	nextWeek := now.AddDate(0, 0, 7)
@@ -186,7 +170,6 @@ func WeekTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
 	api.Send(tgbotapi.NewMessage(chatID, strings.Join(tasks, "\n")))
 }
 
-// MonthTasks lists all tasks for a given chat ID within the next month
 func MonthTasks(db *sql.DB, chatID int64, api *tgbotapi.BotAPI) {
 	now := time.Now()
 	nextMonth := now.AddDate(0, 1, 0)

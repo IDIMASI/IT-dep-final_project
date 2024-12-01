@@ -30,7 +30,7 @@ func NewBot(token string) (*Bot, error) {
 		return nil, err
 	}
 
-	scheduler := gocron.NewScheduler(time.UTC) // Создаем новый планировщик
+	scheduler := gocron.NewScheduler(time.UTC)
 
 	return &Bot{api: api, db: database, scheduler: scheduler}, nil
 }
@@ -43,11 +43,10 @@ func (b *Bot) Start() {
 
 	updates := b.api.GetUpdatesChan(u)
 
-	// Запускаем планировщик в отдельной горутине
 	go b.scheduler.StartAsync()
 
 	for update := range updates {
-		if update.Message == nil { // игнорируем не Message Updates
+		if update.Message == nil {
 			continue
 		}
 
@@ -62,9 +61,9 @@ func (b *Bot) Start() {
 		case "/completeall":
 			commands.CompleteAllTasks(b.db, update.Message.Chat.ID, b.api)
 		case "/week":
-			commands.WeekTasks(b.db, update.Message.Chat.ID, b.api) // Обработка команды /week
+			commands.WeekTasks(b.db, update.Message.Chat.ID, b.api)
 		case "/month":
-			commands.MonthTasks(b.db, update.Message.Chat.ID, b.api) // Обработка команды /month
+			commands.MonthTasks(b.db, update.Message.Chat.ID, b.api)
 		default:
 			b.api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /add, /list, /complete, /completeall, /week или /month."))
 		}
