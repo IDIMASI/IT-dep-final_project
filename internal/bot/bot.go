@@ -43,26 +43,30 @@ func (b *Bot) Start() {
 
 	updates := b.api.GetUpdatesChan(u)
 
-	// Start the scheduler in a separate goroutine
+	// Запускаем планировщик в отдельной горутине
 	go b.scheduler.StartAsync()
 
 	for update := range updates {
-		if update.Message == nil { // ignore non-Message Updates
+		if update.Message == nil { // игнорируем не Message Updates
 			continue
 		}
 
 		command := strings.Split(update.Message.Text, " ")
 		switch command[0] {
 		case "/add":
-			commands.AddTask(b.db, update.Message.Chat.ID, command[1:], b.scheduler, b.api) // Pass to scheduler
+			commands.AddTask(b.db, update.Message.Chat.ID, command[1:], b.scheduler, b.api)
 		case "/list":
 			commands.ListTasks(b.db, update.Message.Chat.ID, b.api)
 		case "/complete":
 			commands.CompleteTask(b.db, update.Message.Chat.ID, command[1:], b.api)
 		case "/completeall":
-			commands.CompleteAllTasks(b.db, update.Message.Chat.ID, b.api) // Handle complete all command
+			commands.CompleteAllTasks(b.db, update.Message.Chat.ID, b.api)
+		case "/week":
+			commands.WeekTasks(b.db, update.Message.Chat.ID, b.api) // Обработка команды /week
+		case "/month":
+			commands.MonthTasks(b.db, update.Message.Chat.ID, b.api) // Обработка команды /month
 		default:
-			b.api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Unknown command. Use /add, /list, /complete, or /completeall."))
+			b.api.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Неизвестная команда. Используйте /add, /list, /complete, /completeall, /week или /month."))
 		}
 	}
 }
